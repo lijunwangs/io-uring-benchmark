@@ -39,7 +39,7 @@ fn main() -> std::io::Result<()> {
     });
 
     println!(
-        "Listening for UDP packets on 0.0.0.0:8080 (Using IORING_SETUP_SQPOLL, idle={}ms)",
+        "Listening for UDP packets on {socket:?} (Using IORING_SETUP_SQPOLL, idle={}ms)",
         SQPOLL_IDLE_MS
     );
 
