@@ -13,7 +13,7 @@ const SQPOLL_IDLE_MS: u32 = 5000; // Kernel polling time before sleep
 
 fn main() -> std::io::Result<()> {
     // Create and bind UDP socket
-    let socket = UdpSocket::bind("0.0.0.0:8080")?;
+    let socket = UdpSocket::bind("0.0.0.0:11228")?;
     socket.set_nonblocking(true)?;
     let fd = socket.as_raw_fd();
 
