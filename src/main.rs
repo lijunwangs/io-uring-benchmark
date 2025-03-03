@@ -1,8 +1,9 @@
-use io_uring::{IoUring, IoUringBuilder, opcode, types};
+use io_uring::{cqueue, opcode, squeue, types, IoUring};
 use std::net::UdpSocket;
 use std::os::unix::io::AsRawFd;
 use std::sync::{
-    Arc, atomic::{AtomicUsize, Ordering}
+    atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 use std::{mem::MaybeUninit, thread, time::Duration};
 
@@ -17,7 +18,7 @@ fn main() -> std::io::Result<()> {
     let fd = socket.as_raw_fd();
 
     // Enable IORING_SETUP_SQPOLL with idle timeout
-    let mut ring = IoUringBuilder::new()
+    let mut ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
         .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
         .build(32)?;
 
@@ -28,15 +29,19 @@ fn main() -> std::io::Result<()> {
     let packet_counter_clone = Arc::clone(&packet_count);
 
     // Spawn a logging thread
-    thread::spawn(move || {
-        loop {
-            thread::sleep(Duration::from_secs(LOG_INTERVAL_SECS));
-            let count = packet_counter_clone.swap(0, Ordering::Relaxed);
-            println!("[LOG] Packets received in last {} seconds: {}", LOG_INTERVAL_SECS, count);
-        }
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_secs(LOG_INTERVAL_SECS));
+        let count = packet_counter_clone.swap(0, Ordering::Relaxed);
+        println!(
+            "[LOG] Packets received in last {} seconds: {}",
+            LOG_INTERVAL_SECS, count
+        );
     });
 
-    println!("Listening for UDP packets on 0.0.0.0:8080 (Using IORING_SETUP_SQPOLL, idle={}ms)", SQPOLL_IDLE_MS);
+    println!(
+        "Listening for UDP packets on 0.0.0.0:8080 (Using IORING_SETUP_SQPOLL, idle={}ms)",
+        SQPOLL_IDLE_MS
+    );
 
     loop {
         let mut buffer = [MaybeUninit::uninit(); BUFFER_SIZE];
@@ -52,7 +57,9 @@ fn main() -> std::io::Result<()> {
 
         // Submit request
         unsafe {
-            ring.submission().push(&entry).expect("Failed to submit request");
+            ring.submission()
+                .push(&entry)
+                .expect("Failed to submit request");
         }
 
         // **Use `need_wakeup()` to check if SQPOLL is asleep**
