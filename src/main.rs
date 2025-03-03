@@ -59,6 +59,8 @@ fn main() -> std::io::Result<()> {
         unsafe {
             sq.push(&entry).expect("Failed to submit request");
         }
+
+        println!("Sunmitted recv request");
         if let Err(e) = submitter.submit_and_wait(1) {
             eprintln!("Submitter failed to wake up SQPOLL: {:?}", e);
         }
