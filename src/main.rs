@@ -63,6 +63,7 @@ fn main() -> std::io::Result<()> {
             eprintln!("Submitter failed to wake up SQPOLL: {:?}", e);
         }
 
+        println!("Reading from socket");
         // Get completion queue event
         let cqe = cq.next().expect("Failed to get completion");
         if cqe.result() < 0 {
