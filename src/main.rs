@@ -22,7 +22,7 @@ fn main() -> std::io::Result<()> {
         .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
         .build(32)?;
 
-    let submitter = ring.submitter(); // Handle for waking up SQPOLL if needed
+    let (submitter, mut sq, mut cq) = ring.split();
 
     // Atomic counter for received packets
     let packet_count = Arc::new(AtomicUsize::new(0));
@@ -47,22 +47,24 @@ fn main() -> std::io::Result<()> {
         let mut buffer = [0 as u8; BUFFER_SIZE];
 
         // Prepare a read operation using io_uring
-        let entry = opcode::Recv::new(types::Fd(fd), buffer.as_mut_ptr() as *mut _, buffer.len() as _)
-            .build()
-            .user_data(42);
+        let entry = opcode::Recv::new(
+            types::Fd(fd),
+            buffer.as_mut_ptr() as *mut _,
+            buffer.len() as _,
+        )
+        .build()
+        .user_data(42);
 
         // Submit request
         unsafe {
-            ring.submission()
-                .push(&entry)
-                .expect("Failed to submit request");
+            sq.push(&entry).expect("Failed to submit request");
         }
         if let Err(e) = submitter.submit() {
             eprintln!("Submitter failed to wake up SQPOLL: {:?}", e);
         }
 
         // Get completion queue event
-        let cqe = ring.completion().next().expect("Failed to get completion");
+        let cqe = cq.next().expect("Failed to get completion");
         if cqe.result() < 0 {
             eprintln!("Error receiving UDP packet: {}", cqe.result());
         } else {
