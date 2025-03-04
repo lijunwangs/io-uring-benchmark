@@ -61,7 +61,7 @@ fn main() -> std::io::Result<()> {
         }
         sq.sync();
 
-        println!("Sunmitted recv request");
+        // println!("Sunmitted recv request");
         if let Err(e) = submitter.submit_and_wait(1) {
             eprintln!("Submitter failed to wake up SQPOLL: {:?}", e);
         }
@@ -69,14 +69,14 @@ fn main() -> std::io::Result<()> {
         cq.sync();
 
         for cqe in &mut cq {
-            println!("Reading from socket");
+            // println!("Reading from socket");
             // Get completion queue event
             if cqe.result() < 0 {
                 eprintln!("Error receiving UDP packet: {}", cqe.result());
             } else {
                 let bytes_received = cqe.result() as usize;
                 packet_count.fetch_add(1, Ordering::Relaxed);
-                println!("Received {} bytes", bytes_received);
+                // println!("Received {} bytes", bytes_received);
             }    
         }
     }
