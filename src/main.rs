@@ -59,12 +59,14 @@ fn main() -> std::io::Result<()> {
         unsafe {
             sq.push(&entry).expect("Failed to submit request");
         }
+        sq.sync();
 
         println!("Sunmitted recv request");
         if let Err(e) = submitter.submit_and_wait(1) {
             eprintln!("Submitter failed to wake up SQPOLL: {:?}", e);
         }
 
+        cq.sync();
         println!("Reading from socket");
         // Get completion queue event
         let cqe = cq.next().expect("Failed to get completion");
