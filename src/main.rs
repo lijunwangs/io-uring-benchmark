@@ -6,6 +6,7 @@ use std::sync::{
     Arc,
 };
 use std::{thread, time::Duration};
+use structopt::StructOpt;
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(name = "io-uring_benchmark")]
