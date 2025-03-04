@@ -7,10 +7,21 @@ use std::sync::{
 };
 use std::{thread, time::Duration};
 
+#[derive(StructOpt, Debug, Clone)]
+#[structopt(name = "io-uring_benchmark")]
+struct Opt {
+    /// Multi recev (recvmsgs), otherwise use recv2
+    #[structopt(long)]
+    multi_recv: bool,
+
+    /// Server address (IP:port) for client mode
+    #[structopt(long, default_value = "0.0.0.0:11228")]
+    server_address: String,
+}
+
 const BUFFER_SIZE: usize = 4096;
 const LOG_INTERVAL_SECS: u64 = 5;
 const SQPOLL_IDLE_MS: u32 = 5000; // Kernel polling time before sleep
-
 
 fn bench_mark_recv(socket: UdpSocket) -> std::io::Result<()> {
     let fd = socket.as_raw_fd();
@@ -75,14 +86,22 @@ fn bench_mark_recv(socket: UdpSocket) -> std::io::Result<()> {
                 let bytes_received = cqe.result() as usize;
                 packet_count.fetch_add(1, Ordering::Relaxed);
                 // println!("Received {} bytes", bytes_received);
-            }    
+            }
         }
     }
 }
 
+fn bench_mark_multi_recv() -> std::io::Result<()> {
+    Ok(())
+}
+
 fn main() -> std::io::Result<()> {
+    let mut opt = Opt::from_args();
     // Create and bind UDP socket
     let socket = UdpSocket::bind("0.0.0.0:11228")?;
     socket.set_nonblocking(true)?;
-    bench_mark_recv(socket)
+    if !opt.multi_recv {
+        bench_mark_recv(socket)
+    } else {
+    }
 }
