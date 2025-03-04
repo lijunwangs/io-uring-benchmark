@@ -78,7 +78,6 @@ fn bench_mark_recv(socket: UdpSocket) -> Result<(), Box<dyn std::error::Error>> 
             }    
         }
     }
-    Ok(())
 }
 
 fn main() -> std::io::Result<()> {
