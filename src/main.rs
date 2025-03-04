@@ -67,16 +67,17 @@ fn main() -> std::io::Result<()> {
         }
 
         cq.sync();
-        println!("Reading from socket");
-        // Get completion queue event
-        let cqe = cq.next().expect("Failed to get completion");
-        if cqe.result() < 0 {
-            eprintln!("Error receiving UDP packet: {}", cqe.result());
-        } else {
-            let bytes_received = cqe.result() as usize;
-            packet_count.fetch_add(1, Ordering::Relaxed);
-            println!("Received {} bytes", bytes_received);
+
+        for cqe in &mut cq {
+            println!("Reading from socket");
+            // Get completion queue event
+            if cqe.result() < 0 {
+                eprintln!("Error receiving UDP packet: {}", cqe.result());
+            } else {
+                let bytes_received = cqe.result() as usize;
+                packet_count.fetch_add(1, Ordering::Relaxed);
+                println!("Received {} bytes", bytes_received);
+            }    
         }
-        sq.sync();
     }
 }
