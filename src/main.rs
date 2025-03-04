@@ -20,7 +20,7 @@ fn main() -> std::io::Result<()> {
     // Enable IORING_SETUP_SQPOLL with idle timeout
     let mut ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
         .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
-        .build(32)?;
+        .build(128)?;
 
     let (submitter, mut sq, mut cq) = ring.split();
 
@@ -57,7 +57,7 @@ fn main() -> std::io::Result<()> {
 
         // Submit request
         unsafe {
-            sq.push(&entry).expect("Failed to submit request");
+            let _ = sq.push(&entry); // .expect("Failed to submit request");
         }
         sq.sync();
 
