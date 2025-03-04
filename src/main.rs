@@ -91,7 +91,7 @@ fn bench_mark_recv(socket: UdpSocket) -> std::io::Result<()> {
     }
 }
 
-fn bench_mark_multi_recv() -> std::io::Result<()> {
+fn bench_mark_multi_recv(socket: UdpSocket) -> std::io::Result<()> {
     Ok(())
 }
 
@@ -103,5 +103,6 @@ fn main() -> std::io::Result<()> {
     if !opt.multi_recv {
         bench_mark_recv(socket)
     } else {
+        bench_mark_multi_recv(socket)
     }
 }
