@@ -12,7 +12,7 @@ const LOG_INTERVAL_SECS: u64 = 5;
 const SQPOLL_IDLE_MS: u32 = 5000; // Kernel polling time before sleep
 
 
-fn bench_mark_recv(socket: UdpSocket) -> Result<(), Box<dyn std::error::Error>> {
+fn bench_mark_recv(socket: UdpSocket) -> std::io::Result<()> {
     let fd = socket.as_raw_fd();
 
     // Enable IORING_SETUP_SQPOLL with idle timeout
