@@ -77,5 +77,6 @@ fn main() -> std::io::Result<()> {
             packet_count.fetch_add(1, Ordering::Relaxed);
             println!("Received {} bytes", bytes_received);
         }
+        sq.sync();
     }
 }
