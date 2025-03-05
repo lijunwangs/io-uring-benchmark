@@ -1,4 +1,4 @@
-use io_uring::{cqueue, opcode, squeue, types, IoUring};
+use io_uring::{cqueue, opcode, squeue, types, IoUring, Probe};
 use std::net::UdpSocket;
 use std::os::unix::io::AsRawFd;
 use std::sync::{
@@ -86,6 +86,15 @@ fn bench_mark_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> 
 fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> {
     // Provide 2 buffers in buffer group `33`, at index 0 and 1.
     // Each one is 512 bytes large.
+    let probe = Probe::new();
+
+    require!{
+        probe.is_supported(opcode::RecvMsgMulti::CODE);
+        probe.is_supported(opcode::ProvideBuffers::CODE);
+        probe.is_supported(opcode::SendMsgZc::CODE);
+        probe.is_supported(opcode::SendMsg::CODE);
+    };
+
     const BUF_GROUP: u16 = 33;
     const SIZE: usize = 1400;
     let mut buffers = [[0u8; SIZE]; 1024];
