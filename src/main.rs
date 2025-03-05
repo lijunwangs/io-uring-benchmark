@@ -83,7 +83,50 @@ fn bench_mark_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> 
     }
 }
 
-fn bench_mark_multi_recv(socket: UdpSocket) -> std::io::Result<()> {
+fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> {
+    // Provide 2 buffers in buffer group `33`, at index 0 and 1.
+    // Each one is 512 bytes large.
+    const BUF_GROUP: u16 = 33;
+    const SIZE: usize = 1400;
+    let mut buffers = [[0u8; SIZE]; 1024];
+    for (index, buf) in buffers.iter_mut().enumerate() {
+        let provide_bufs_e = io_uring::opcode::ProvideBuffers::new(
+            buf.as_mut_ptr(),
+            SIZE as i32,
+            1,
+            BUF_GROUP,
+            index as u16,
+        )
+        .build()
+        .user_data(11)
+        .into();
+        unsafe { ring.submission().push(&provide_bufs_e)? };
+        ring.submitter().submit_and_wait(1)?;
+        let cqes: Vec<io_uring::cqueue::Entry> = ring.completion().map(Into::into).collect();
+        assert_eq!(cqes.len(), 1);
+        assert_eq!(cqes[0].user_data(), 11);
+        assert_eq!(cqes[0].result(), 0);
+        assert_eq!(cqes[0].flags(), 0);
+    }
+
+    // This structure is actually only used for input arguments to the kernel
+    // (and only name length and control length are actually relevant).
+    let mut msghdr: libc::msghdr = unsafe { std::mem::zeroed() };
+    msghdr.msg_namelen = 32;
+    msghdr.msg_controllen = 0;
+
+    let recvmsg_e = opcode::RecvMsgMulti::new(
+        Fd(server_socket.as_raw_fd()),
+        &msghdr as *const _,
+        BUF_GROUP,
+    )
+    .build()
+    .user_data(77)
+    .into();
+    unsafe { ring.submission().push(&recvmsg_e)? };
+    ring.submitter().submit().unwrap();
+
+
     Ok(())
 }
 
