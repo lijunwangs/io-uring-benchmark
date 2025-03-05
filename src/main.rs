@@ -75,7 +75,7 @@ fn bench_mark_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> 
             if cqe.result() < 0 {
                 eprintln!("Error receiving UDP packet: {}", cqe.result());
             } else {
-                let bytes_received = cqe.result() as usize;
+                // let bytes_received = cqe.result() as usize;
                 packet_count.fetch_add(1, Ordering::Relaxed);
                 // println!("Received {} bytes", bytes_received);
             }
