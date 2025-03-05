@@ -100,7 +100,12 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
         .build()
         .user_data(11)
         .into();
-        unsafe { ring.submission().push(&provide_bufs_e)? };
+        unsafe {
+            ring.submission()
+                .push(&provide_bufs_e)
+                .expect("submit should succeed");
+        }
+
         ring.submitter().submit_and_wait(1)?;
         let cqes: Vec<io_uring::cqueue::Entry> = ring.completion().map(Into::into).collect();
         assert_eq!(cqes.len(), 1);
@@ -123,9 +128,12 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
     .build()
     .user_data(77)
     .into();
-    unsafe { ring.submission().push(&recvmsg_e)? };
+    unsafe {
+        ring.submission()
+            .push(&recvmsg_e)
+            .expect("submit should suceed");
+    };
     ring.submitter().submit().unwrap();
-
 
     Ok(())
 }
