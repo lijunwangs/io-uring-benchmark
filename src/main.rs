@@ -157,10 +157,10 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
                 socket2::SockAddr::new(storage, len)
             };
             let addr = addr.as_socket_ipv4().unwrap();
+            println!("Got message from addr: {addr:?}");
         }
     }
 
-    Ok(())
 }
 
 fn main() -> std::io::Result<()> {
