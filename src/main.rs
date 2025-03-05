@@ -14,10 +14,6 @@ struct Opt {
     /// Multi recev (recvmsgs), otherwise use recv2
     #[structopt(long)]
     multi_recv: bool,
-
-    /// Server address (IP:port) for client mode
-    #[structopt(long, default_value = "0.0.0.0:11228")]
-    server_address: String,
 }
 
 const BUFFER_SIZE: usize = 4096;
@@ -92,12 +88,12 @@ fn bench_mark_multi_recv(socket: UdpSocket) -> std::io::Result<()> {
 }
 
 fn main() -> std::io::Result<()> {
-    let mut opt = Opt::from_args();
+    let opt = Opt::from_args();
     // Create and bind UDP socket
     let socket = UdpSocket::bind("0.0.0.0:11228")?;
     socket.set_nonblocking(true)?;
     // Enable IORING_SETUP_SQPOLL with idle timeout
-    let mut ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
+    let ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
         .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
         .build(128)?;
 
