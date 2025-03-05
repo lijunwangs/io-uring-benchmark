@@ -90,6 +90,7 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
     const SIZE: usize = 1400;
     let mut buffers = [[0u8; SIZE]; 1024];
     for (index, buf) in buffers.iter_mut().enumerate() {
+        println!("Providing buffer: {index}");
         let provide_bufs_e = io_uring::opcode::ProvideBuffers::new(
             buf.as_mut_ptr(),
             SIZE as i32,
