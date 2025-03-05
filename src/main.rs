@@ -116,7 +116,7 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
     msghdr.msg_controllen = 0;
 
     let recvmsg_e = opcode::RecvMsgMulti::new(
-        Fd(server_socket.as_raw_fd()),
+        types::Fd(socket.as_raw_fd()),
         &msghdr as *const _,
         BUF_GROUP,
     )
