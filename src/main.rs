@@ -111,6 +111,7 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
         let cqes: Vec<io_uring::cqueue::Entry> = ring.completion().map(Into::into).collect();
         assert_eq!(cqes.len(), 1);
         assert_eq!(cqes[0].user_data(), 11);
+        println!("Results: {}", cqes[0].result());
         assert_eq!(cqes[0].result(), 0);
         assert_eq!(cqes[0].flags(), 0);
     }
