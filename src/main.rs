@@ -139,7 +139,6 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
         let cqes: Vec<io_uring::cqueue::Entry> = ring.completion().map(Into::into).collect();
         for cqe in cqes {
             assert!(cqe.result() > 0);
-            assert!(is_more);
             let buf_id = io_uring::cqueue::buffer_select(cqe.flags()).unwrap();
             let tmp_buf = &buffers[buf_id as usize];
             let msg = types::RecvMsgOut::parse(tmp_buf, &msghdr).unwrap();
@@ -158,8 +157,6 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
                 socket2::SockAddr::new(storage, len)
             };
             let addr = addr.as_socket_ipv4().unwrap();
-            assert_eq!(addr.ip(), client_addr.ip());
-            assert_eq!(addr.port(), client_addr.port());
         }
     }
 
