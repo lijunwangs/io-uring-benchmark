@@ -24,13 +24,8 @@ const BUFFER_SIZE: usize = 4096;
 const LOG_INTERVAL_SECS: u64 = 5;
 const SQPOLL_IDLE_MS: u32 = 5000; // Kernel polling time before sleep
 
-fn bench_mark_recv(socket: UdpSocket) -> std::io::Result<()> {
+fn bench_mark_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> {
     let fd = socket.as_raw_fd();
-
-    // Enable IORING_SETUP_SQPOLL with idle timeout
-    let mut ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
-        .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
-        .build(128)?;
 
     let (submitter, mut sq, mut cq) = ring.split();
 
@@ -101,8 +96,13 @@ fn main() -> std::io::Result<()> {
     // Create and bind UDP socket
     let socket = UdpSocket::bind("0.0.0.0:11228")?;
     socket.set_nonblocking(true)?;
+    // Enable IORING_SETUP_SQPOLL with idle timeout
+    let mut ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
+        .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
+        .build(128)?;
+
     if !opt.multi_recv {
-        bench_mark_recv(socket)
+        bench_mark_recv(socket, ring)
     } else {
         bench_mark_multi_recv(socket)
     }
