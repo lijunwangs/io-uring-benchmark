@@ -88,12 +88,10 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
     // Each one is 512 bytes large.
     let probe = Probe::new();
 
-    require!{
-        probe.is_supported(opcode::RecvMsgMulti::CODE);
-        probe.is_supported(opcode::ProvideBuffers::CODE);
-        probe.is_supported(opcode::SendMsgZc::CODE);
-        probe.is_supported(opcode::SendMsg::CODE);
-    };
+    assert!(probe.is_supported(opcode::RecvMsgMulti::CODE));
+    assert!(probe.is_supported(opcode::ProvideBuffers::CODE));
+    assert!(probe.is_supported(opcode::SendMsgZc::CODE));
+    assert!(probe.is_supported(opcode::SendMsg::CODE));
 
     const BUF_GROUP: u16 = 33;
     const SIZE: usize = 1400;
