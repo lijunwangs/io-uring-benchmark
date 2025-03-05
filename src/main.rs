@@ -151,6 +151,6 @@ fn main() -> std::io::Result<()> {
     if !opt.multi_recv {
         bench_mark_recv(socket, ring)
     } else {
-        bench_mark_multi_recv(socket)
+        bench_mark_multi_recv(socket, ring)
     }
 }
