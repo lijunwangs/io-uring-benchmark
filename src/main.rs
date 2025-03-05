@@ -120,20 +120,48 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
     msghdr.msg_namelen = 32;
     msghdr.msg_controllen = 0;
 
-    let recvmsg_e = opcode::RecvMsgMulti::new(
-        types::Fd(socket.as_raw_fd()),
-        &msghdr as *const _,
-        BUF_GROUP,
-    )
-    .build()
-    .user_data(77)
-    .into();
-    unsafe {
-        ring.submission()
-            .push(&recvmsg_e)
-            .expect("submit should suceed");
-    };
-    ring.submitter().submit().unwrap();
+    loop {
+        let recvmsg_e = opcode::RecvMsgMulti::new(
+            types::Fd(socket.as_raw_fd()),
+            &msghdr as *const _,
+            BUF_GROUP,
+        )
+        .build()
+        .user_data(77)
+        .into();
+        unsafe {
+            ring.submission()
+                .push(&recvmsg_e)
+                .expect("submit should suceed");
+        };
+        ring.submitter().submit().unwrap();
+
+        let cqes: Vec<io_uring::cqueue::Entry> = ring.completion().map(Into::into).collect();
+        for cqe in cqes {
+            assert!(cqe.result() > 0);
+            assert!(is_more);
+            let buf_id = io_uring::cqueue::buffer_select(cqe.flags()).unwrap();
+            let tmp_buf = &buffers[buf_id as usize];
+            let msg = types::RecvMsgOut::parse(tmp_buf, &msghdr).unwrap();
+            assert!([25, 15].contains(&msg.payload_data().len()));
+            assert!(!msg.is_payload_truncated());
+            assert!(!msg.is_control_data_truncated());
+            assert_eq!(msg.control_data(), &[]);
+            assert!(!msg.is_name_data_truncated());
+            let addr = unsafe {
+                let storage = msg
+                    .name_data()
+                    .as_ptr()
+                    .cast::<libc::sockaddr_storage>()
+                    .read_unaligned();
+                let len = msg.name_data().len().try_into().unwrap();
+                socket2::SockAddr::new(storage, len)
+            };
+            let addr = addr.as_socket_ipv4().unwrap();
+            assert_eq!(addr.ip(), client_addr.ip());
+            assert_eq!(addr.port(), client_addr.port());
+        }
+    }
 
     Ok(())
 }
