@@ -524,6 +524,7 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "io-uring",
+ "libc",
  "quinn",
  "rand 0.9.0",
  "rcgen",

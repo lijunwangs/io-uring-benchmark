@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.22"
 io-uring = "0.7.4"
+libc = { version = "0.2", features = [ "extra_traits" ] }
 quinn = "0.11.6"
 #quinn = {git = "https://github.com/lijunwangs/quinn.git", rev = "b5ba0f73554052e09cc47f71198021821ccdb9d0"}
 #quinn-proto = {git = "https://github.com/lijunwangs/quinn.git", rev = "b5ba0f73554052e09cc47f71198021821ccdb9d0"}
