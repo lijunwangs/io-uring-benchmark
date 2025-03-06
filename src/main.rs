@@ -57,10 +57,10 @@ fn run_recv(
 
         // Submit request
         unsafe {
-            while !sq.is_full() {
+            if !sq.is_full() {
                 let result = sq.push(&entry); // .expect("Failed to submit request");
                 if result.is_err() {
-                    break;
+                    println!("Could not submit request: {result:?}");
                 }
             }
         }
