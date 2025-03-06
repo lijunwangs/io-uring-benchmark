@@ -57,7 +57,12 @@ fn run_recv(
 
         // Submit request
         unsafe {
-            let _ = sq.push(&entry); // .expect("Failed to submit request");
+            for _ in (0..1024) {
+                let result = sq.push(&entry); // .expect("Failed to submit request");
+                if result.is_err() {
+                    break;
+                }
+            }
         }
         sq.sync();
 
@@ -230,7 +235,7 @@ fn main() -> std::io::Result<()> {
     // Enable IORING_SETUP_SQPOLL with idle timeout
     let ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
         .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
-        .build(128)?;
+        .build(1024)?;
 
     // Atomic counter for received packets
     let packet_count = Arc::new(AtomicUsize::new(0));
