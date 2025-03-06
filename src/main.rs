@@ -57,7 +57,7 @@ fn run_recv(
 
         // Submit request
         unsafe {
-            for _ in (0..1024) {
+            for _ in 0..1024 {
                 let result = sq.push(&entry); // .expect("Failed to submit request");
                 if result.is_err() {
                     break;
