@@ -83,6 +83,7 @@ fn bench_mark_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> 
     }
 }
 
+// Multi-shot recv is not supported on Ubuntu 22.04 -- need kernel 6.0
 fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> {
     // Provide 2 buffers in buffer group `33`, at index 0 and 1.
     // Each one is 512 bytes large.
@@ -172,6 +173,47 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
 
 }
 
+
+// Use recvmsg
+fn bench_mark_recvmsg(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> {
+    let sockaddr = socket.local_addr().unwrap();
+    assert!(probe.is_supported(opcode::RecvMsg::CODE));
+    const SIZE: usize = 1400;
+
+    let mut buf2 = vec![0; SIZE];
+    let mut bufs2 = [io::IoSliceMut::new(&mut buf2)];
+
+    // build recvmsg
+    let mut msg = MaybeUninit::<libc::msghdr>::zeroed();
+
+    unsafe {
+        let p = msg.as_mut_ptr();
+        (*p).msg_name = sockaddr.as_ptr() as *const _ as *mut _;
+        (*p).msg_namelen = sockaddr.len();
+        (*p).msg_iov = bufs2.as_mut_ptr() as *mut _;
+        (*p).msg_iovlen = 1;
+    }
+
+    let recvmsg_e = opcode::RecvMsg::new(recv_fd, msg.as_mut_ptr());
+
+    // submit
+    unsafe {
+        let mut queue = ring.submission();
+        queue
+            .push(&recvmsg_e.build().user_data(0x02).into())
+            .expect("queue is full");
+    }
+
+    ring.submit_and_wait(1)?;
+
+    let cqes: Vec<cqueue::Entry> = ring.completion().map(Into::into).collect();
+    assert_eq!(cqes.len(), 1);
+
+
+    Ok(())
+}
+
+
 fn main() -> std::io::Result<()> {
     let opt = Opt::from_args();
     // Create and bind UDP socket
@@ -185,6 +227,6 @@ fn main() -> std::io::Result<()> {
     if !opt.multi_recv {
         bench_mark_recv(socket, ring)
     } else {
-        bench_mark_multi_recv(socket, ring)
+        bench_mark_recvmsg(socket, ring)
     }
 }
