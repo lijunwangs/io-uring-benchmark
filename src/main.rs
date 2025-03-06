@@ -1,11 +1,11 @@
 use io_uring::{cqueue, opcode, squeue, types, IoUring, Probe};
+use std::mem::MaybeUninit;
 use std::net::UdpSocket;
 use std::os::unix::io::AsRawFd;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-use std::mem::MaybeUninit;
 use std::{thread, time::Duration};
 use structopt::StructOpt;
 
@@ -15,6 +15,9 @@ struct Opt {
     /// Multi recev (recvmsgs), otherwise use recv2
     #[structopt(long)]
     multi_recv: bool,
+    /// Traditional recev (recvmsgs)
+    #[structopt(long)]
+    recvmsg: bool,
 }
 
 const BUFFER_SIZE: usize = 4096;
@@ -171,9 +174,7 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
             println!("Got message from addr: {addr:?}");
         }
     }
-
 }
-
 
 // Use recvmsg
 fn bench_mark_recvmsg(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> {
@@ -214,10 +215,8 @@ fn bench_mark_recvmsg(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<(
     let cqes: Vec<cqueue::Entry> = ring.completion().map(Into::into).collect();
     assert_eq!(cqes.len(), 1);
 
-
     Ok(())
 }
-
 
 fn main() -> std::io::Result<()> {
     let opt = Opt::from_args();
@@ -229,9 +228,11 @@ fn main() -> std::io::Result<()> {
         .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
         .build(128)?;
 
-    if !opt.multi_recv {
-        bench_mark_recv(socket, ring)
-    } else {
+    if opt.multi_recv {
+        bench_mark_multi_recv(socket, ring)
+    } else if opt.recvmsg {
         bench_mark_recvmsg(socket, ring)
+    } else {
+        bench_mark_recv(socket, ring)
     }
 }
