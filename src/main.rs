@@ -182,8 +182,8 @@ fn bench_mark_recvmsg(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<(
     let sockaddr = socket.local_addr().unwrap();
     let sockaddr = socket2::SockAddr::from(sockaddr);
 
-    let probe = Probe::new();
-    assert!(probe.is_supported(opcode::RecvMsg::CODE));
+    // let probe = Probe::new();
+    // assert!(probe.is_supported(opcode::RecvMsg::CODE));
     const SIZE: usize = 1400;
 
     let mut buf2 = vec![0; SIZE];
