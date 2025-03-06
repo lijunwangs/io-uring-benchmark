@@ -31,7 +31,7 @@ fn bench_mark_recv(
 ) -> std::io::Result<()> {
     let fd = socket.as_raw_fd();
 
-    let (submitter, mut sq, mut cq) = ring.split();
+    let (submitter, sq, cq) = ring.split();
 
     run_recv(packet_count, fd, submitter, sq, cq)
 }
