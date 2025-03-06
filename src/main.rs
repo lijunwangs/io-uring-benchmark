@@ -24,29 +24,11 @@ const BUFFER_SIZE: usize = 4096;
 const LOG_INTERVAL_SECS: u64 = 5;
 const SQPOLL_IDLE_MS: u32 = 5000; // Kernel polling time before sleep
 
-fn bench_mark_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> {
+fn bench_mark_recv(socket: UdpSocket, mut ring: IoUring, packet_count: Arc<AtomicUsize>) -> std::io::Result<()> {
     let fd = socket.as_raw_fd();
 
     let (submitter, mut sq, mut cq) = ring.split();
 
-    // Atomic counter for received packets
-    let packet_count = Arc::new(AtomicUsize::new(0));
-    let packet_counter_clone = Arc::clone(&packet_count);
-
-    // Spawn a logging thread
-    thread::spawn(move || loop {
-        thread::sleep(Duration::from_secs(LOG_INTERVAL_SECS));
-        let count = packet_counter_clone.swap(0, Ordering::Relaxed);
-        println!(
-            "[LOG] Packets received in last {} seconds: {}",
-            LOG_INTERVAL_SECS, count
-        );
-    });
-
-    println!(
-        "Listening for UDP packets on {socket:?} fd: {fd} (Using IORING_SETUP_SQPOLL, idle={}ms)",
-        SQPOLL_IDLE_MS
-    );
 
     loop {
         let mut buffer = [0 as u8; BUFFER_SIZE];
@@ -88,7 +70,7 @@ fn bench_mark_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> 
 }
 
 // Multi-shot recv is not supported on Ubuntu 22.04 -- need kernel 6.0
-fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> {
+fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring,  _packet_count: Arc<AtomicUsize>) -> std::io::Result<()> {
     // Provide 2 buffers in buffer group `33`, at index 0 and 1.
     // Each one is 512 bytes large.
     let probe = Probe::new();
@@ -177,7 +159,7 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
 }
 
 // Use recvmsg
-fn bench_mark_recvmsg(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> {
+fn bench_mark_recvmsg(socket: UdpSocket, mut ring: IoUring,  packet_count: Arc<AtomicUsize>) -> std::io::Result<()> {
     let fd = types::Fd(socket.as_raw_fd());
     let sockaddr = socket.local_addr().unwrap();
     let sockaddr = socket2::SockAddr::from(sockaddr);
@@ -228,11 +210,30 @@ fn main() -> std::io::Result<()> {
         .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
         .build(128)?;
 
+    // Atomic counter for received packets
+    let packet_count = Arc::new(AtomicUsize::new(0));
+    let packet_counter_clone = packet_count.clone();
+
+    // Spawn a logging thread
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_secs(LOG_INTERVAL_SECS));
+        let count = packet_counter_clone.swap(0, Ordering::Relaxed);
+        println!(
+            "[LOG] Packets received in last {} seconds: {}",
+            LOG_INTERVAL_SECS, count
+        );
+    });
+
+    println!(
+        "Listening for UDP packets on {socket:?} fd: {fd} (Using IORING_SETUP_SQPOLL, idle={}ms)",
+        SQPOLL_IDLE_MS
+    );
+
     if opt.multi_recv {
-        bench_mark_multi_recv(socket, ring)
+        bench_mark_multi_recv(socket, ring, packet_count)
     } else if opt.recvmsg {
-        bench_mark_recvmsg(socket, ring)
+        bench_mark_recvmsg(socket, ring, packet_count)
     } else {
-        bench_mark_recv(socket, ring)
+        bench_mark_recv(socket, ring, packet_count)
     }
 }
