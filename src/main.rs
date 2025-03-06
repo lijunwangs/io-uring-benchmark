@@ -5,6 +5,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
+use std::mem::MaybeUninit;
 use std::{thread, time::Duration};
 use structopt::StructOpt;
 
@@ -176,12 +177,16 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
 
 // Use recvmsg
 fn bench_mark_recvmsg(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> {
+    let fd = socket.as_raw_fd();
     let sockaddr = socket.local_addr().unwrap();
+    let sockaddr = socket2::SockAddr::from(sockaddr);
+
+    let probe = Probe::new();
     assert!(probe.is_supported(opcode::RecvMsg::CODE));
     const SIZE: usize = 1400;
 
     let mut buf2 = vec![0; SIZE];
-    let mut bufs2 = [io::IoSliceMut::new(&mut buf2)];
+    let mut bufs2 = [std::io::IoSliceMut::new(&mut buf2)];
 
     // build recvmsg
     let mut msg = MaybeUninit::<libc::msghdr>::zeroed();
@@ -194,7 +199,7 @@ fn bench_mark_recvmsg(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<(
         (*p).msg_iovlen = 1;
     }
 
-    let recvmsg_e = opcode::RecvMsg::new(recv_fd, msg.as_mut_ptr());
+    let recvmsg_e = opcode::RecvMsg::new(fd, msg.as_mut_ptr());
 
     // submit
     unsafe {
