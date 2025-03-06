@@ -24,11 +24,14 @@ const BUFFER_SIZE: usize = 4096;
 const LOG_INTERVAL_SECS: u64 = 5;
 const SQPOLL_IDLE_MS: u32 = 5000; // Kernel polling time before sleep
 
-fn bench_mark_recv(socket: UdpSocket, mut ring: IoUring, packet_count: Arc<AtomicUsize>) -> std::io::Result<()> {
+fn bench_mark_recv(
+    socket: UdpSocket,
+    mut ring: IoUring,
+    packet_count: Arc<AtomicUsize>,
+) -> std::io::Result<()> {
     let fd = socket.as_raw_fd();
 
     let (submitter, mut sq, mut cq) = ring.split();
-
 
     loop {
         let mut buffer = [0 as u8; BUFFER_SIZE];
@@ -70,7 +73,11 @@ fn bench_mark_recv(socket: UdpSocket, mut ring: IoUring, packet_count: Arc<Atomi
 }
 
 // Multi-shot recv is not supported on Ubuntu 22.04 -- need kernel 6.0
-fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring,  _packet_count: Arc<AtomicUsize>) -> std::io::Result<()> {
+fn bench_mark_multi_recv(
+    socket: UdpSocket,
+    mut ring: IoUring,
+    _packet_count: Arc<AtomicUsize>,
+) -> std::io::Result<()> {
     // Provide 2 buffers in buffer group `33`, at index 0 and 1.
     // Each one is 512 bytes large.
     let probe = Probe::new();
@@ -159,7 +166,11 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring,  _packet_count: A
 }
 
 // Use recvmsg
-fn bench_mark_recvmsg(socket: UdpSocket, mut ring: IoUring,  packet_count: Arc<AtomicUsize>) -> std::io::Result<()> {
+fn bench_mark_recvmsg(
+    socket: UdpSocket,
+    mut ring: IoUring,
+    packet_count: Arc<AtomicUsize>,
+) -> std::io::Result<()> {
     let fd = types::Fd(socket.as_raw_fd());
     let sockaddr = socket.local_addr().unwrap();
     let sockaddr = socket2::SockAddr::from(sockaddr);
@@ -182,22 +193,23 @@ fn bench_mark_recvmsg(socket: UdpSocket, mut ring: IoUring,  packet_count: Arc<A
         (*p).msg_iovlen = 1;
     }
 
-    let recvmsg_e = opcode::RecvMsg::new(fd, msg.as_mut_ptr());
+    loop {
+        let recvmsg_e = opcode::RecvMsg::new(fd, msg.as_mut_ptr());
 
-    // submit
-    unsafe {
-        let mut queue = ring.submission();
-        queue
-            .push(&recvmsg_e.build().user_data(0x02).into())
-            .expect("queue is full");
+        // submit
+        unsafe {
+            let mut queue = ring.submission();
+            queue
+                .push(&recvmsg_e.build().user_data(0x02).into())
+                .expect("queue is full");
+        }
+
+        ring.submit_and_wait(1)?;
+
+        let cqes: Vec<cqueue::Entry> = ring.completion().map(Into::into).collect();
+        assert_eq!(cqes.len(), 1);
     }
 
-    ring.submit_and_wait(1)?;
-
-    let cqes: Vec<cqueue::Entry> = ring.completion().map(Into::into).collect();
-    assert_eq!(cqes.len(), 1);
-
-    Ok(())
 }
 
 fn main() -> std::io::Result<()> {
