@@ -57,7 +57,7 @@ fn run_recv(
 
         // Submit request
         unsafe {
-            for _ in 0..1024 {
+            while !sq.is_full() {
                 let result = sq.push(&entry); // .expect("Failed to submit request");
                 if result.is_err() {
                     break;
@@ -67,7 +67,7 @@ fn run_recv(
         sq.sync();
 
         // println!("Sunmitted recv request");
-        if let Err(e) = submitter.submit() {
+        if let Err(e) = submitter.submit_and_wait(1) {
             eprintln!("Submitter failed to wake up SQPOLL: {:?}", e);
         }
 
