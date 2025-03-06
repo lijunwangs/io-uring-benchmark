@@ -208,6 +208,7 @@ fn bench_mark_recvmsg(
 
         let cqes: Vec<cqueue::Entry> = ring.completion().map(Into::into).collect();
         assert_eq!(cqes.len(), 1);
+        packet_count.fetch_add(1, Ordering::Relaxed);
     }
 
 }
