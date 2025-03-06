@@ -225,7 +225,8 @@ fn main() -> std::io::Result<()> {
     });
 
     println!(
-        "Listening for UDP packets on {socket:?} fd: {fd} (Using IORING_SETUP_SQPOLL, idle={}ms)",
+        "Listening for UDP packets on {socket:?} fd: {} (Using IORING_SETUP_SQPOLL, idle={}ms)",
+        socket.as_raw_fd(),
         SQPOLL_IDLE_MS
     );
 
