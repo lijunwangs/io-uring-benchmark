@@ -67,7 +67,7 @@ fn run_recv(
         sq.sync();
 
         // println!("Sunmitted recv request");
-        if let Err(e) = submitter.submit_and_wait(1) {
+        if let Err(e) = submitter.submit() {
             eprintln!("Submitter failed to wake up SQPOLL: {:?}", e);
         }
 
