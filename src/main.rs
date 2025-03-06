@@ -177,7 +177,7 @@ fn bench_mark_multi_recv(socket: UdpSocket, mut ring: IoUring) -> std::io::Resul
 
 // Use recvmsg
 fn bench_mark_recvmsg(socket: UdpSocket, mut ring: IoUring) -> std::io::Result<()> {
-    let fd = socket.as_raw_fd();
+    let fd = types::Fd(socket.as_raw_fd());
     let sockaddr = socket.local_addr().unwrap();
     let sockaddr = socket2::SockAddr::from(sockaddr);
 
