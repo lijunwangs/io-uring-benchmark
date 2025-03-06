@@ -33,6 +33,16 @@ fn bench_mark_recv(
 
     let (submitter, mut sq, mut cq) = ring.split();
 
+    run_recv(packet_count, fd, submitter, sq, cq)
+}
+
+fn run_recv(
+    packet_count: Arc<AtomicUsize>,
+    fd: i32,
+    submitter: io_uring::Submitter<'_>,
+    mut sq: squeue::SubmissionQueue<'_>,
+    mut cq: cqueue::CompletionQueue<'_>,
+) -> ! {
     loop {
         let mut buffer = [0 as u8; BUFFER_SIZE];
 
@@ -210,7 +220,6 @@ fn bench_mark_recvmsg(
         assert_eq!(cqes.len(), 1);
         packet_count.fetch_add(1, Ordering::Relaxed);
     }
-
 }
 
 fn main() -> std::io::Result<()> {
