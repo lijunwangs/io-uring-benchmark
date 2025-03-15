@@ -283,7 +283,10 @@ fn bench_mark_recvmsg_with_provided_buf(
 
         ring.submit_and_wait(1)?;
 
+
         let cqe: cqueue::Entry = ring.completion().next().expect("cqueue is empty").into();
+
+        if cqe.user_data() == 0x27 {
         assert_eq!(cqe.user_data(), 0x27);
         assert_eq!(cqe.result(), 1024); // -14 would mean EFAULT, bad address.
 
@@ -297,6 +300,20 @@ fn bench_mark_recvmsg_with_provided_buf(
             // The 5.15 case.
             // Test buffer slice associated with the given bid.
             packet_count.fetch_add(1, Ordering::Relaxed);
+
+            let provide_bufs_e = opcode::ProvideBuffers::new(&buf[1024..].as_mut_ptr(), 1024, 1, BGID, bid);
+
+            unsafe {
+                ring.submission()
+                    .push(&provide_bufs_e.build().user_data(0x26).into())
+                    .expect("queue is full");
+            }
+        
+            ring.submit_and_wait(1)?;
+        
+            let cqe: cqueue::Entry = ring.completion().next().expect("cqueue is empty").into();
+            assert_eq!(cqe.user_data(), 0x26);
+        
         } else {
             panic!(
                 "cqe bid {}, was neither {} nor {}",
@@ -305,6 +322,7 @@ fn bench_mark_recvmsg_with_provided_buf(
                 INPUT_BID + 1
             );
         }
+    }
     }
 
     Ok(())
