@@ -21,7 +21,7 @@ struct Opt {
 
     /// use provided buffer
     #[structopt(long)]
-    use_buffer: bool,    
+    use_buffer: bool,
 }
 
 const BUFFER_SIZE: usize = 4096;
@@ -226,12 +226,11 @@ fn bench_mark_recvmsg(
         ring.submit_and_wait(1)?;
 
         let cqes: Vec<cqueue::Entry> = ring.completion().map(Into::into).collect();
-        for entry in cqes {
+        for _entry in cqes {
             packet_count.fetch_add(1, Ordering::Relaxed);
         }
     }
 }
-
 
 // Use recvmsg
 fn bench_mark_recvmsg_with_provided_buf(
@@ -241,8 +240,7 @@ fn bench_mark_recvmsg_with_provided_buf(
 ) -> std::io::Result<()> {
     let fd = types::Fd(socket.as_raw_fd());
     let sockaddr = socket.local_addr().unwrap();
-    let sockaddr = socket2::SockAddr::from(sockaddr);
-
+    println!("Listening on {sockaddr:?}");
     const BGID: u16 = 0xdeaf;
     const INPUT_BID: u16 = 100;
 
@@ -261,50 +259,52 @@ fn bench_mark_recvmsg_with_provided_buf(
     let cqe: cqueue::Entry = ring.completion().next().expect("cqueue is empty").into();
     assert_eq!(cqe.user_data(), 0x26);
 
+    for _ in 0..3 {
+        // recvmsg
+        let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
+        let mut iovecs: [libc::iovec; 1] = unsafe { std::mem::zeroed() };
+        iovecs[0].iov_len = 1024; // This can be used to reduce the length of the read.
+        msg.msg_iov = &mut iovecs as *mut _;
+        msg.msg_iovlen = 1; // 2 results in EINVAL, Invalid argument, being returned in result.
 
-    // recvmsg
-    let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
-    let mut iovecs: [libc::iovec; 1] = unsafe { std::mem::zeroed() };
-    iovecs[0].iov_len = 1024; // This can be used to reduce the length of the read.
-    msg.msg_iov = &mut iovecs as *mut _;
-    msg.msg_iovlen = 1; // 2 results in EINVAL, Invalid argument, being returned in result.
+        // N.B. This op will only support a BUFFER_SELECT when the msg.msg_iovlen is 1;
+        // the kernel will return EINVAL for anything else. There would be no way of knowing
+        // which other buffer IDs had been chosen.
+        let op = opcode::RecvMsg::new(fd, &mut msg as *mut _)
+            .buf_group(BGID) // else result is -105, ENOBUFS, no buffer space available
+            .build()
+            .flags(squeue::Flags::BUFFER_SELECT) // else result is -14, EFAULT, bad address
+            .user_data(0x27);
 
-    // N.B. This op will only support a BUFFER_SELECT when the msg.msg_iovlen is 1;
-    // the kernel will return EINVAL for anything else. There would be no way of knowing
-    // which other buffer IDs had been chosen.
-    let op = opcode::RecvMsg::new(fd, &mut msg as *mut _)
-        .buf_group(BGID) // else result is -105, ENOBUFS, no buffer space available
-        .build()
-        .flags(squeue::Flags::BUFFER_SELECT) // else result is -14, EFAULT, bad address
-        .user_data(0x27);
+        // Safety: the msghdr and the iovecs remain valid for length of the operation.
+        unsafe {
+            ring.submission().push(&op.into()).expect("queue is full");
+        }
 
-    // Safety: the msghdr and the iovecs remain valid for length of the operation.
-    unsafe {
-        ring.submission().push(&op.into()).expect("queue is full");
-    }
+        ring.submit_and_wait(1)?;
 
-    ring.submit_and_wait(1)?;
+        let cqe: cqueue::Entry = ring.completion().next().expect("cqueue is empty").into();
+        assert_eq!(cqe.user_data(), 0x27);
+        assert_eq!(cqe.result(), 1024); // -14 would mean EFAULT, bad address.
 
-    let cqe: cqueue::Entry = ring.completion().next().expect("cqueue is empty").into();
-    assert_eq!(cqe.user_data(), 0x27);
-    assert_eq!(cqe.result(), 1024); // -14 would mean EFAULT, bad address.
-
-    let bid = cqueue::buffer_select(cqe.flags()).expect("no buffer id");
-    if bid == INPUT_BID {
-        // The 6.1 case.
-        // Test buffer slice associated with the given bid.
-        assert_eq!(&(buf[..1024]), &([0x56u8; 1024][..]));
-    } else if bid == (INPUT_BID + 1) {
-        // The 5.15 case.
-        // Test buffer slice associated with the given bid.
-        assert_eq!(&(buf[1024..]), &([0x56u8; 1024][..]));
-    } else {
-        panic!(
-            "cqe bid {}, was neither {} nor {}",
-            bid,
-            INPUT_BID,
-            INPUT_BID + 1
-        );
+        let bid = cqueue::buffer_select(cqe.flags()).expect("no buffer id");
+        println!("The buffer id is {bid}");
+        if bid == INPUT_BID {
+            // The 6.1 case.
+            // Test buffer slice associated with the given bid.
+            packet_count.fetch_add(1, Ordering::Relaxed);
+        } else if bid == (INPUT_BID + 1) {
+            // The 5.15 case.
+            // Test buffer slice associated with the given bid.
+            packet_count.fetch_add(1, Ordering::Relaxed);
+        } else {
+            panic!(
+                "cqe bid {}, was neither {} nor {}",
+                bid,
+                INPUT_BID,
+                INPUT_BID + 1
+            );
+        }
     }
 
     Ok(())
@@ -328,7 +328,6 @@ fn bench_mark_recvmsg_with_provided_buf(
     //     }
     // }
 }
-
 
 fn main() -> std::io::Result<()> {
     let opt = Opt::from_args();
@@ -364,7 +363,7 @@ fn main() -> std::io::Result<()> {
         bench_mark_multi_recv(socket, ring, packet_count)
     } else if opt.recvmsg {
         bench_mark_recvmsg(socket, ring, packet_count)
-    }  else if opt.use_buffer {
+    } else if opt.use_buffer {
         bench_mark_recvmsg_with_provided_buf(socket, ring, packet_count)
     } else {
         bench_mark_recv(socket, ring, packet_count)
