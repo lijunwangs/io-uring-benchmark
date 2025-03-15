@@ -26,7 +26,7 @@ struct Opt {
 
 const BUFFER_SIZE: usize = 4096;
 const LOG_INTERVAL_SECS: u64 = 5;
-const SQPOLL_IDLE_MS: u32 = 5000; // Kernel polling time before sleep
+const SQPOLL_IDLE_MS: u32 = 100; // Kernel polling time before sleep
 
 fn bench_mark_recv(
     socket: UdpSocket,
@@ -242,11 +242,11 @@ fn bench_mark_recvmsg_with_provided_buf(
     let sockaddr = socket.local_addr().unwrap();
     println!("Listening on {sockaddr:?}");
     const BGID: u16 = 0xdeaf;
-    const INPUT_BID: u16 = 100;
+    const INPUT_BID: u16 = 0;
 
     // provide two buffers for recvmsg
-    let mut buf = [0u8; 2 * 1024];
-    let provide_bufs_e = opcode::ProvideBuffers::new(buf.as_mut_ptr(), 1024, 2, BGID, INPUT_BID);
+    let mut buf = [0u8; 1024 * 1024];
+    let provide_bufs_e = opcode::ProvideBuffers::new(buf.as_mut_ptr(), 1024, 1024, BGID, INPUT_BID);
 
     unsafe {
         ring.submission()
@@ -259,61 +259,54 @@ fn bench_mark_recvmsg_with_provided_buf(
     let cqe: cqueue::Entry = ring.completion().next().expect("cqueue is empty").into();
     assert_eq!(cqe.user_data(), 0x26);
 
-    for _ in 0..3 {
-        // recvmsg
-        let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
-        let mut iovecs: [libc::iovec; 1] = unsafe { std::mem::zeroed() };
-        iovecs[0].iov_len = 1024; // This can be used to reduce the length of the read.
-        msg.msg_iov = &mut iovecs as *mut _;
-        msg.msg_iovlen = 1; // 2 results in EINVAL, Invalid argument, being returned in result.
-
-        // N.B. This op will only support a BUFFER_SELECT when the msg.msg_iovlen is 1;
-        // the kernel will return EINVAL for anything else. There would be no way of knowing
-        // which other buffer IDs had been chosen.
-        let op = opcode::RecvMsg::new(fd, &mut msg as *mut _)
-            .buf_group(BGID) // else result is -105, ENOBUFS, no buffer space available
-            .build()
-            .flags(squeue::Flags::BUFFER_SELECT) // else result is -14, EFAULT, bad address
-            .user_data(0x27);
-
+    loop {
         // Safety: the msghdr and the iovecs remain valid for length of the operation.
         unsafe {
-            ring.submission().push(&op.into()).expect("queue is full");
+            if !ring.submission().is_full() {
+                // recvmsg
+                let mut msg: libc::msghdr = std::mem::zeroed();
+                let mut iovecs: [libc::iovec; 1] = std::mem::zeroed();
+                iovecs[0].iov_len = 1024; // This can be used to reduce the length of the read.
+                msg.msg_iov = &mut iovecs as *mut _;
+                msg.msg_iovlen = 1; // 2 results in EINVAL, Invalid argument, being returned in result.
+
+                // N.B. This op will only support a BUFFER_SELECT when the msg.msg_iovlen is 1;
+                // the kernel will return EINVAL for anything else. There would be no way of knowing
+                // which other buffer IDs had been chosen.
+                let op = opcode::RecvMsg::new(fd, &mut msg as *mut _)
+                    .buf_group(BGID) // else result is -105, ENOBUFS, no buffer space available
+                    .build()
+                    .flags(squeue::Flags::BUFFER_SELECT) // else result is -14, EFAULT, bad address
+                    .user_data(0x27);
+                let _result = ring.submission().push(&op.into());
+            }
         }
 
         ring.submit_and_wait(1)?;
 
-        for cqe in ring.completion() {
+        let cqes: Vec<io_uring::cqueue::Entry> = ring.completion().map(Into::into).collect();
+
+        for cqe in cqes {
+            println!("cqe: {:x} {}", cqe.user_data(), cqe.result());
             if cqe.user_data() == 0x27 {
-                assert_eq!(cqe.user_data(), 0x27);
-                assert_eq!(cqe.result(), 1024); // -14 would mean EFAULT, bad address.
+                if cqe.result() < 0 {
+                    continue;
+                }
 
                 let bid = cqueue::buffer_select(cqe.flags()).expect("no buffer id");
-                println!("The buffer id is {bid}");
-                if bid == INPUT_BID {
-                    // The 6.1 case.
-                    // Test buffer slice associated with the given bid.
+                //println!("The buffer id is {bid}");
+                if bid >= INPUT_BID && bid < INPUT_BID + 1024 {
                     packet_count.fetch_add(1, Ordering::Relaxed);
-                    let provide_bufs_e =
-                        opcode::ProvideBuffers::new(&buf[0..1024].as_mut_ptr(), 1024, 1, BGID, bid);
-
-                    unsafe {
-                        ring.submission()
-                            .push(&provide_bufs_e.build().user_data(0x26).into())
-                            .expect("queue is full");
-                    }
-                } else if bid == (INPUT_BID + 1) {
-                    // The 5.15 case.
-                    // Test buffer slice associated with the given bid.
-                    packet_count.fetch_add(1, Ordering::Relaxed);
+                    let lb: usize = (bid as usize * 1024) as usize;
+                    let hb: usize = ((bid as usize + 1) * 1024) as usize;
 
                     let provide_bufs_e =
-                        opcode::ProvideBuffers::new(&buf[1024..].as_mut_ptr(), 1024, 1, BGID, bid);
+                        opcode::ProvideBuffers::new(buf[lb..hb].as_mut_ptr(), 1024, 1, BGID, bid);
 
                     unsafe {
-                        ring.submission()
-                            .push(&provide_bufs_e.build().user_data(0x26).into())
-                            .expect("queue is full");
+                        let _result = ring
+                            .submission()
+                            .push(&provide_bufs_e.build().user_data(0x26).into());
                     }
                 } else {
                     panic!(
@@ -326,27 +319,6 @@ fn bench_mark_recvmsg_with_provided_buf(
             }
         }
     }
-
-    Ok(())
-
-    // loop {
-    //     let recvmsg_e = opcode::RecvMsg::new(fd, msg.as_mut_ptr());
-
-    //     // submit
-    //     unsafe {
-    //         let mut queue = ring.submission();
-    //         queue
-    //             .push(&recvmsg_e.build().user_data(0x02).into())
-    //             .expect("queue is full");
-    //     }
-
-    //     ring.submit_and_wait(1)?;
-
-    //     let cqes: Vec<cqueue::Entry> = ring.completion().map(Into::into).collect();
-    //     for entry in cqes {
-    //         packet_count.fetch_add(1, Ordering::Relaxed);
-    //     }
-    // }
 }
 
 fn main() -> std::io::Result<()> {
