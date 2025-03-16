@@ -281,7 +281,7 @@ fn bench_mark_recvmsg_with_provided_buf(
                 let result = ring.submission().push(&op.into());
 
                 if result.is_ok() {
-                    println!("submiited SQE!");
+                    println!("submiited SQE len: {}!", ring.submission().len());
                     ring.submit_and_wait(1)?;
                 }
             }
