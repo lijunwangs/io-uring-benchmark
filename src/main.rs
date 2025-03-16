@@ -278,11 +278,15 @@ fn bench_mark_recvmsg_with_provided_buf(
                     .build()
                     .flags(squeue::Flags::BUFFER_SELECT) // else result is -14, EFAULT, bad address
                     .user_data(0x27);
-                let _result = ring.submission().push(&op.into());
+                let result = ring.submission().push(&op.into());
+
+                if result.is_ok() {
+                    println!("submiited SQE!");
+                    ring.submit_and_wait(1)?;
+                }
             }
         }
 
-        ring.submit_and_wait(1)?;
 
         let cqes: Vec<io_uring::cqueue::Entry> = ring.completion().map(Into::into).collect();
 
@@ -290,6 +294,7 @@ fn bench_mark_recvmsg_with_provided_buf(
             println!("cqe: {:x} {}", cqe.user_data(), cqe.result());
             if cqe.user_data() == 0x27 {
                 if cqe.result() < 0 {
+                    // ENOBUFS: 105
                     continue;
                 }
 
@@ -304,9 +309,12 @@ fn bench_mark_recvmsg_with_provided_buf(
                         opcode::ProvideBuffers::new(buf[lb..hb].as_mut_ptr(), 1024, 1, BGID, bid);
 
                     unsafe {
-                        let _result = ring
+                        let result = ring
                             .submission()
                             .push(&provide_bufs_e.build().user_data(0x26).into());
+                        if result.is_err() {
+                            println!("reprovide buffer error: {result:?}");
+                        }
                     }
                 } else {
                     panic!(
