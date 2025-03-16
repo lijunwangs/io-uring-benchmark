@@ -263,7 +263,7 @@ fn bench_mark_recvmsg_with_provided_buf(
         // Safety: the msghdr and the iovecs remain valid for length of the operation.
         unsafe {
 
-            for _ in (0..64) {
+            for _ in (0..16) {
                 if !ring.submission().is_full() {
                     // recvmsg
                     let mut msg: libc::msghdr = std::mem::zeroed();
