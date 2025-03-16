@@ -299,7 +299,7 @@ fn bench_mark_recvmsg_with_provided_buf(
                 }
 
                 let bid = cqueue::buffer_select(cqe.flags()).expect("no buffer id");
-                //println!("The buffer id is {bid}");
+                println!("The buffer id is {bid}");
                 if bid >= INPUT_BID && bid < INPUT_BID + 1024 {
                     packet_count.fetch_add(1, Ordering::Relaxed);
                     let lb: usize = (bid as usize * 1024) as usize;
