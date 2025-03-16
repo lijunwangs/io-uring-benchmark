@@ -281,7 +281,7 @@ fn bench_mark_recvmsg_with_provided_buf(
                 let result = ring.submission().push(&op.into());
 
                 if result.is_ok() {
-                    println!("submiited SQE len: {}!", ring.submission().len());
+                    // println!("submiited SQE len: {}!", ring.submission().len());
                     ring.submit_and_wait(1)?;
                 }
             }
@@ -291,7 +291,7 @@ fn bench_mark_recvmsg_with_provided_buf(
         let cqes: Vec<io_uring::cqueue::Entry> = ring.completion().map(Into::into).collect();
 
         for cqe in cqes {
-            println!("cqe: {:x} {}", cqe.user_data(), cqe.result());
+            // println!("cqe: {:x} {}", cqe.user_data(), cqe.result());
             if cqe.user_data() == 0x27 {
                 if cqe.result() < 0 {
                     // ENOBUFS: 105
@@ -299,7 +299,7 @@ fn bench_mark_recvmsg_with_provided_buf(
                 }
 
                 let bid = cqueue::buffer_select(cqe.flags()).expect("no buffer id");
-                println!("The buffer id is {bid}");
+                // println!("The buffer id is {bid}");
                 if bid >= INPUT_BID && bid < INPUT_BID + 1024 {
                     packet_count.fetch_add(1, Ordering::Relaxed);
                     let lb: usize = (bid as usize * 1024) as usize;
