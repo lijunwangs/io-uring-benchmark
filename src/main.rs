@@ -262,31 +262,31 @@ fn bench_mark_recvmsg_with_provided_buf(
     loop {
         // Safety: the msghdr and the iovecs remain valid for length of the operation.
         unsafe {
-            if !ring.submission().is_full() {
-                // recvmsg
-                let mut msg: libc::msghdr = std::mem::zeroed();
-                let mut iovecs: [libc::iovec; 1] = std::mem::zeroed();
-                iovecs[0].iov_len = 1024; // This can be used to reduce the length of the read.
-                msg.msg_iov = &mut iovecs as *mut _;
-                msg.msg_iovlen = 1; // 2 results in EINVAL, Invalid argument, being returned in result.
 
-                // N.B. This op will only support a BUFFER_SELECT when the msg.msg_iovlen is 1;
-                // the kernel will return EINVAL for anything else. There would be no way of knowing
-                // which other buffer IDs had been chosen.
-                let op = opcode::RecvMsg::new(fd, &mut msg as *mut _)
-                    .buf_group(BGID) // else result is -105, ENOBUFS, no buffer space available
-                    .build()
-                    .flags(squeue::Flags::BUFFER_SELECT) // else result is -14, EFAULT, bad address
-                    .user_data(0x27);
-                let result = ring.submission().push(&op.into());
+            for _ in (0..10) {
+                if !ring.submission().is_full() {
+                    // recvmsg
+                    let mut msg: libc::msghdr = std::mem::zeroed();
+                    let mut iovecs: [libc::iovec; 1] = std::mem::zeroed();
+                    iovecs[0].iov_len = 1024; // This can be used to reduce the length of the read.
+                    msg.msg_iov = &mut iovecs as *mut _;
+                    msg.msg_iovlen = 1; // 2 results in EINVAL, Invalid argument, being returned in result.
 
-                if result.is_ok() {
-                    // println!("submiited SQE len: {}!", ring.submission().len());
-                    ring.submit_and_wait(1)?;
+                    // N.B. This op will only support a BUFFER_SELECT when the msg.msg_iovlen is 1;
+                    // the kernel will return EINVAL for anything else. There would be no way of knowing
+                    // which other buffer IDs had been chosen.
+                    let op = opcode::RecvMsg::new(fd, &mut msg as *mut _)
+                        .buf_group(BGID) // else result is -105, ENOBUFS, no buffer space available
+                        .build()
+                        .flags(squeue::Flags::BUFFER_SELECT) // else result is -14, EFAULT, bad address
+                        .user_data(0x27);
+                    let result = ring.submission().push(&op.into());
+
                 }
             }
         }
 
+        ring.submit_and_wait(1)?;
 
         let cqes: Vec<io_uring::cqueue::Entry> = ring.completion().map(Into::into).collect();
 
