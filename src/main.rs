@@ -386,7 +386,7 @@ fn main() -> std::io::Result<()> {
 
     for _ in 0..opt.num_endpoints {
         let handle = thread::spawn(move || {
-            run_server(opt, socket, packet_count);
+            run_server(opt, socket, packet_count.clone());
         });
         handles.push(handle);
     }
