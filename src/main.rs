@@ -385,6 +385,7 @@ fn main() -> std::io::Result<()> {
     let mut handles = Vec::new();
 
     for socket in sockets.drain(..) {
+        let packet_count = packet_count.clone();
         let handle = thread::spawn(move || {
             run_server(opt, socket, packet_count.clone());
         });
