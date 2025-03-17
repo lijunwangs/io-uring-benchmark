@@ -2,7 +2,7 @@ use io_uring::{cqueue, opcode, squeue, types, IoUring, Probe};
 use std::mem::MaybeUninit;
 use std::net::UdpSocket;
 use std::os::unix::io::AsRawFd;
-use std::os::unix::net::SocketAddr;
+use std::net::SocketAddr;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
