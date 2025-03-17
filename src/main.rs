@@ -361,8 +361,6 @@ fn main() -> std::io::Result<()> {
         .expect("Exepected correct server address in IP:port format"); // SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
 
     let mut sockets = bind_multi(opt.num_endpoints, addr);
-    let socket = UdpSocket::bind("0.0.0.0:11228")?;
-    socket.set_nonblocking(true)?;
 
     // Atomic counter for received packets
     let packet_count = Arc::new(AtomicUsize::new(0));
@@ -379,8 +377,8 @@ fn main() -> std::io::Result<()> {
     });
 
     println!(
-        "Listening for UDP packets on {socket:?} fd: {} (Using IORING_SETUP_SQPOLL, idle={}ms)",
-        socket.as_raw_fd(),
+        "Listening for UDP packets on {sockets:?} fd: {} (Using IORING_SETUP_SQPOLL, idle={}ms)",
+        sockets[0].as_raw_fd(),
         SQPOLL_IDLE_MS
     );
 
