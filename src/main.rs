@@ -337,7 +337,7 @@ fn bench_mark_recvmsg_with_provided_buf(
 }
 
 fn bind_multi(count: usize, addr: SocketAddr) -> Vec<UdpSocket> {
-    let (_port, mut sockets) = solana_net_utils::multi_bind_in_range(
+    let (_port, sockets) = solana_net_utils::multi_bind_in_range(
         addr.ip(),
         (addr.port(), addr.port() + count as u16),
         count,
@@ -388,7 +388,7 @@ fn main() -> std::io::Result<()> {
         let opt = opt.clone();
         let packet_count = packet_count.clone();
         let handle = thread::spawn(move || {
-            run_server(opt, socket, packet_count.clone());
+            let _ = run_server(opt, socket, packet_count.clone());
         });
         handles.push(handle);
     }
