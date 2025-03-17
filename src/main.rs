@@ -304,6 +304,8 @@ fn bench_mark_recvmsg_with_provided_buf(
             }
         }
 
+        println!("Queue len: {}, recv_msg_cnt: {recv_msg_cnt}, provide_buf_cnt: {provide_buf_cnt}", ring.submission().len());
+
         ring.submit_and_wait(1)?;
 
         let cqes: Vec<io_uring::cqueue::Entry> = ring.completion().map(Into::into).collect();
