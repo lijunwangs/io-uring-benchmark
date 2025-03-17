@@ -1,4 +1,5 @@
 use io_uring::{cqueue, opcode, squeue, types, IoUring, Probe};
+use solana_net_utils::SocketConfig;
 use std::mem::MaybeUninit;
 use std::net::SocketAddr;
 use std::net::UdpSocket;
@@ -288,7 +289,7 @@ fn bench_mark_recvmsg_with_provided_buf(
                         .build()
                         .flags(squeue::Flags::BUFFER_SELECT) // else result is -14, EFAULT, bad address
                         .user_data(0x27);
-                    let result = ring.submission().push(&op.into());
+                    let _result = ring.submission().push(&op.into());
                 }
             }
         }
@@ -337,9 +338,10 @@ fn bench_mark_recvmsg_with_provided_buf(
 }
 
 fn bind_multi(count: usize, addr: SocketAddr) -> Vec<UdpSocket> {
-    let (_port, sockets) = solana_net_utils::multi_bind_in_range(
+    let (_port, sockets) = solana_net_utils::multi_bind_in_range_with_config(
         addr.ip(),
         (addr.port(), addr.port() + count as u16),
+        SocketConfig::default().reuseport(true),
         count,
     )
     .unwrap();
