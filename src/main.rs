@@ -408,7 +408,7 @@ fn run_server(
     // Enable IORING_SETUP_SQPOLL with idle timeout
     let ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
         .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
-        .build(1024)?;
+        .build(2048)?;
 
     if opt.multi_recv {
         bench_mark_multi_recv(socket, ring, packet_count)
