@@ -382,13 +382,12 @@ fn main() -> std::io::Result<()> {
         SQPOLL_IDLE_MS
     );
 
-    let handles = Vec::new();
+    let mut handles = Vec::new();
 
     for _ in 0..opt.num_endpoints {
         let handle = thread::spawn(move || {
             run_server(opt, socket, packet_count);
-        })
-        .unwrap();
+        });
         handles.push(handle);
     }
 
