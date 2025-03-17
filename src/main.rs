@@ -270,6 +270,7 @@ fn bench_mark_recvmsg_with_provided_buf(
     assert_eq!(cqe.user_data(), 0x26);
 
     let mut recv_msg_cnt: usize = 0;
+    let mut provide_buf_cnt: usize = 0;
 
     loop {
         // Safety: the msghdr and the iovecs remain valid for length of the operation.
@@ -331,7 +332,9 @@ fn bench_mark_recvmsg_with_provided_buf(
                             .submission()
                             .push(&provide_bufs_e.build().user_data(0x26).into());
                         if result.is_err() {
-                            println!("reprovide buffer error: {result:?}");
+                            println!("reprovide buffer error: {result:?} recv_msg_cnt: {recv_msg_cnt}, provide_buf_cnt: {provide_buf_cnt}");
+                        } else {
+                            provide_buf_cnt += 1;
                         }
                     }
                 } else {
@@ -342,6 +345,8 @@ fn bench_mark_recvmsg_with_provided_buf(
                         INPUT_BID + 1
                     );
                 }
+            } else if cqe.user_data() == 0x26 {
+                provide_buf_cnt -= 1;
             }
         }
     }
