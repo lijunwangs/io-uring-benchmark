@@ -1,8 +1,8 @@
 use io_uring::{cqueue, opcode, squeue, types, IoUring, Probe};
 use std::mem::MaybeUninit;
+use std::net::SocketAddr;
 use std::net::UdpSocket;
 use std::os::unix::io::AsRawFd;
-use std::net::SocketAddr;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
@@ -27,7 +27,6 @@ struct Opt {
     /// Server address (IP:port) for client mode
     #[structopt(long, default_value = "0.0.0.0:11228")]
     server_address: String,
-
 }
 
 const BUFFER_SIZE: usize = 4096;
@@ -268,8 +267,7 @@ fn bench_mark_recvmsg_with_provided_buf(
     loop {
         // Safety: the msghdr and the iovecs remain valid for length of the operation.
         unsafe {
-
-            for _ in (0..16) {
+            for _ in 0..16 {
                 if !ring.submission().is_full() {
                     // recvmsg
                     let mut msg: libc::msghdr = std::mem::zeroed();
@@ -334,7 +332,7 @@ fn bench_mark_recvmsg_with_provided_buf(
     }
 }
 
-fn bind_multi(count: u16, addr: SocketAddr) -> Vec<UdpSocket>{
+fn bind_multi(count: usize, addr: SocketAddr) -> Vec<UdpSocket> {
     let (_port, mut sockets) = solana_net_utils::multi_bind_in_range(
         addr.ip(),
         (addr.port(), addr.port() + count as u16),
@@ -350,9 +348,9 @@ fn main() -> std::io::Result<()> {
     // Create and bind UDP socket
 
     let addr = opt
-    .server_address
-    .parse::<SocketAddr>()
-    .expect("Exepected correct server address in IP:port format"); // SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+        .server_address
+        .parse::<SocketAddr>()
+        .expect("Exepected correct server address in IP:port format"); // SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
 
     let socket = UdpSocket::bind("0.0.0.0:11228")?;
     socket.set_nonblocking(true)?;
