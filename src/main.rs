@@ -24,6 +24,10 @@ struct Opt {
     #[structopt(long)]
     use_buffer: bool,
 
+    /// Number of endpoints on server side
+    #[structopt(long, default_value = "8")]
+    num_endpoints: usize,
+
     /// Server address (IP:port) for client mode
     #[structopt(long, default_value = "0.0.0.0:11228")]
     server_address: String,
@@ -354,12 +358,9 @@ fn main() -> std::io::Result<()> {
         .parse::<SocketAddr>()
         .expect("Exepected correct server address in IP:port format"); // SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
 
+    let sockets = bind_multi(opt.num_endpoints, addr);
     let socket = UdpSocket::bind("0.0.0.0:11228")?;
     socket.set_nonblocking(true)?;
-    // Enable IORING_SETUP_SQPOLL with idle timeout
-    let ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
-        .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
-        .build(1024)?;
 
     // Atomic counter for received packets
     let packet_count = Arc::new(AtomicUsize::new(0));
@@ -380,6 +381,33 @@ fn main() -> std::io::Result<()> {
         socket.as_raw_fd(),
         SQPOLL_IDLE_MS
     );
+
+    let handles = Vec::new();
+
+    for _ in 0..opt.num_endpoints {
+        let handle = thread::spawn(move || {
+            run_server(opt, socket, packet_count);
+        })
+        .unwrap();
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        let _ = handle.join();
+    }
+
+    Ok(())
+}
+
+fn run_server(
+    opt: Opt,
+    socket: UdpSocket,
+    packet_count: Arc<AtomicUsize>,
+) -> Result<(), std::io::Error> {
+    // Enable IORING_SETUP_SQPOLL with idle timeout
+    let ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
+        .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
+        .build(1024)?;
 
     if opt.multi_recv {
         bench_mark_multi_recv(socket, ring, packet_count)
