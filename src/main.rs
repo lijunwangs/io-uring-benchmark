@@ -339,7 +339,9 @@ fn bind_multi(count: usize, addr: SocketAddr) -> Vec<UdpSocket> {
         count,
     )
     .unwrap();
-    sockets.iter().for_each(|s| s.set_nonblocking(true));
+    sockets.iter().for_each(|s| {
+        let _r = s.set_nonblocking(true);
+    });
     sockets
 }
 
