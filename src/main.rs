@@ -358,7 +358,7 @@ fn main() -> std::io::Result<()> {
         .parse::<SocketAddr>()
         .expect("Exepected correct server address in IP:port format"); // SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
 
-    let sockets = bind_multi(opt.num_endpoints, addr);
+    let mut sockets = bind_multi(opt.num_endpoints, addr);
     let socket = UdpSocket::bind("0.0.0.0:11228")?;
     socket.set_nonblocking(true)?;
 
@@ -384,7 +384,7 @@ fn main() -> std::io::Result<()> {
 
     let mut handles = Vec::new();
 
-    for _ in 0..opt.num_endpoints {
+    for socket in sockets.drain(..) {
         let handle = thread::spawn(move || {
             run_server(opt, socket, packet_count.clone());
         });
