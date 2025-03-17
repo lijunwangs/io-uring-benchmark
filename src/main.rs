@@ -269,10 +269,15 @@ fn bench_mark_recvmsg_with_provided_buf(
     let cqe: cqueue::Entry = ring.completion().next().expect("cqueue is empty").into();
     assert_eq!(cqe.user_data(), 0x26);
 
+    let mut recv_msg_cnt: usize = 0;
+
     loop {
         // Safety: the msghdr and the iovecs remain valid for length of the operation.
         unsafe {
             for _ in 0..16 {
+                if recv_msg_cnt >= 1024 {
+                    break;
+                }
                 if !ring.submission().is_full() {
                     // recvmsg
                     let mut msg: libc::msghdr = std::mem::zeroed();
@@ -289,7 +294,11 @@ fn bench_mark_recvmsg_with_provided_buf(
                         .build()
                         .flags(squeue::Flags::BUFFER_SELECT) // else result is -14, EFAULT, bad address
                         .user_data(0x27);
-                    let _result = ring.submission().push(&op.into());
+                    let result = ring.submission().push(&op.into());
+
+                    if result.is_ok() {
+                        recv_msg_cnt += 1;
+                    }
                 }
             }
         }
@@ -301,6 +310,7 @@ fn bench_mark_recvmsg_with_provided_buf(
         for cqe in cqes {
             // println!("cqe: {:x} {}", cqe.user_data(), cqe.result());
             if cqe.user_data() == 0x27 {
+                recv_msg_cnt -= 1;
                 if cqe.result() < 0 {
                     // ENOBUFS: 105
                     continue;
