@@ -269,12 +269,15 @@ fn bench_mark_recvmsg_with_provided_buf(
     let cqe: cqueue::Entry = ring.completion().next().expect("cqueue is empty").into();
     assert_eq!(cqe.user_data(), 0x26);
 
+    // SQE request counters:, incremented when queued and decermented when dequeued:
     let mut recv_msg_cnt: usize = 0;
     let mut provide_buf_cnt: usize = 0;
 
     println!("Initial SQE len: {}", ring.submission().len());
+    let mut i: usize = 0;
 
     loop {
+        i += 1;
         // Safety: the msghdr and the iovecs remain valid for length of the operation.
         unsafe {
             for _ in 0..16 {
@@ -306,7 +309,12 @@ fn bench_mark_recvmsg_with_provided_buf(
             }
         }
 
-        // println!("Queue len: {}, recv_msg_cnt: {recv_msg_cnt}, provide_buf_cnt: {provide_buf_cnt}", ring.submission().len());
+        if i % 1000 == 0 {
+            println!(
+                "Queue len: {}, recv_msg_cnt: {recv_msg_cnt}, provide_buf_cnt: {provide_buf_cnt}",
+                ring.submission().len()
+            );
+        }
 
         ring.submit_and_wait(1)?;
 
