@@ -1,5 +1,6 @@
 use io_uring::{cqueue, opcode, squeue, types, IoUring, Probe};
 use solana_net_utils::SocketConfig;
+use std::collections::VecDeque;
 use std::mem::MaybeUninit;
 use std::net::SocketAddr;
 use std::net::UdpSocket;
@@ -276,6 +277,8 @@ fn bench_mark_recvmsg_with_provided_buf(
     println!("Initial SQE len: {}", ring.submission().len());
     let mut i: usize = 0;
 
+    let mut buffers_to_requeue = VecDeque::new();
+
     loop {
         i += 1;
         // Safety: the msghdr and the iovecs remain valid for length of the operation.
@@ -305,13 +308,37 @@ fn bench_mark_recvmsg_with_provided_buf(
 
                     if result.is_ok() {
                         let new_cnt = ring.submission().len();
-                        assert_eq!(new_cnt - 1, cnt);
                         recv_msg_cnt += 1;
                     }
                 }
             }
         }
 
+        while !buffers_to_requeue.is_empty() {
+            let bid = buffers_to_requeue.pop_front().unwrap();
+
+            let lb: usize = (bid as usize * 1024) as usize;
+            let hb: usize = ((bid as usize + 1) * 1024) as usize;
+
+            let provide_bufs_e =
+                opcode::ProvideBuffers::new(buf[lb..hb].as_mut_ptr(), 1024, 1, BGID, bid);
+
+            unsafe {
+                let result = ring
+                    .submission()
+                    .push(&provide_bufs_e.build().user_data(0x26).into());
+                if result.is_err() {
+                    println!("reprovide buffer error: {result:?} recv_msg_cnt: {recv_msg_cnt}, provide_buf_cnt: {provide_buf_cnt} len: {}",
+                        ring.submission().len());
+                    // requeue it: but break as we are already full of sqes:
+                    buffers_to_requeue.push_back(bid);
+                    break;
+                } else {
+                    provide_buf_cnt += 1;
+                }
+            }
+        }
+            
         if i % 1000 == 0 {
             println!(
                 "Queue len: {}, recv_msg_cnt: {recv_msg_cnt}, provide_buf_cnt: {provide_buf_cnt}",
@@ -336,23 +363,7 @@ fn bench_mark_recvmsg_with_provided_buf(
                 // println!("The buffer id is {bid}");
                 if bid >= INPUT_BID && bid < INPUT_BID + 1024 {
                     packet_count.fetch_add(1, Ordering::Relaxed);
-                    let lb: usize = (bid as usize * 1024) as usize;
-                    let hb: usize = ((bid as usize + 1) * 1024) as usize;
-
-                    let provide_bufs_e =
-                        opcode::ProvideBuffers::new(buf[lb..hb].as_mut_ptr(), 1024, 1, BGID, bid);
-
-                    unsafe {
-                        let result = ring
-                            .submission()
-                            .push(&provide_bufs_e.build().user_data(0x26).into());
-                        if result.is_err() {
-                            println!("reprovide buffer error: {result:?} recv_msg_cnt: {recv_msg_cnt}, provide_buf_cnt: {provide_buf_cnt} len: {}",
-                                ring.submission().len());
-                        } else {
-                            provide_buf_cnt += 1;
-                        }
-                    }
+                    buffers_to_requeue.push_back(bid);
                 } else {
                     panic!(
                         "cqe bid {}, was neither {} nor {}",
