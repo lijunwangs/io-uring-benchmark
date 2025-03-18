@@ -335,7 +335,7 @@ fn bench_mark_recvmsg_with_provided_buf(
             }
         }
 
-        if i % 1000 == 0 {
+        if i % 100000 == 0 {
             println!(
                 "Queue len: {}, recv_msg_cnt: {recv_msg_cnt}, provide_buf_cnt: {provide_buf_cnt}",
                 ring.submission().len()
