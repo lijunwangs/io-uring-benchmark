@@ -272,7 +272,7 @@ fn bench_mark_recvmsg_with_provided_buf(
 
     // SQE request counters:, incremented when queued and decermented when dequeued:
     let mut recv_msg_cnt: usize = 0;
-    let mut provide_buf_cnt: usize = 0;
+    let mut provide_buf_cnt: usize = 1024; // count of buffers
 
     println!("Initial SQE len: {}", ring.submission().len());
     let mut i: usize = 0;
