@@ -300,9 +300,12 @@ fn bench_mark_recvmsg_with_provided_buf(
                         .build()
                         .flags(squeue::Flags::BUFFER_SELECT) // else result is -14, EFAULT, bad address
                         .user_data(0x27);
+                    let cnt = ring.submission().len();
                     let result = ring.submission().push(&op.into());
 
                     if result.is_ok() {
+                        let new_cnt = ring.submission().len();
+                        assert_eq!(new_cnt - 1, cnt);
                         recv_msg_cnt += 1;
                     }
                 }
