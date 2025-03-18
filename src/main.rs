@@ -331,12 +331,10 @@ fn bench_mark_recvmsg_with_provided_buf(
                     // requeue it: but break as we are already full of sqes:
                     buffers_to_requeue.push_back(bid);
                     break;
-                } else {
-                    provide_buf_cnt += 1;
                 }
             }
         }
-            
+
         if i % 1000 == 0 {
             println!(
                 "Queue len: {}, recv_msg_cnt: {recv_msg_cnt}, provide_buf_cnt: {provide_buf_cnt}",
@@ -357,6 +355,7 @@ fn bench_mark_recvmsg_with_provided_buf(
                     continue;
                 }
 
+                provide_buf_cnt -= 1;
                 let bid = cqueue::buffer_select(cqe.flags()).expect("no buffer id");
                 // println!("The buffer id is {bid}");
                 if bid >= INPUT_BID && bid < INPUT_BID + 1024 {
@@ -364,14 +363,14 @@ fn bench_mark_recvmsg_with_provided_buf(
                     buffers_to_requeue.push_back(bid);
                 } else {
                     panic!(
-                        "cqe bid {}, was neither {} nor {}",
+                        "cqe bid {}, was not between [{},{})",
                         bid,
                         INPUT_BID,
-                        INPUT_BID + 1
+                        INPUT_BID + 1024
                     );
                 }
             } else if cqe.user_data() == 0x26 {
-                provide_buf_cnt -= 1;
+                provide_buf_cnt += 1;
             }
         }
     }
