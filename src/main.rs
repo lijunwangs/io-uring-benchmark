@@ -272,6 +272,8 @@ fn bench_mark_recvmsg_with_provided_buf(
     let mut recv_msg_cnt: usize = 0;
     let mut provide_buf_cnt: usize = 0;
 
+    println!("Initial SQE len: {}", ring.submission().len());
+
     loop {
         // Safety: the msghdr and the iovecs remain valid for length of the operation.
         unsafe {
