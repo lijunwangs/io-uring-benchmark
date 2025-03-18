@@ -326,8 +326,8 @@ fn bench_mark_recvmsg_with_provided_buf(
                     .submission()
                     .push(&provide_bufs_e.build().user_data(0x26).into());
                 if result.is_err() {
-                    println!("reprovide buffer error: {result:?} recv_msg_cnt: {recv_msg_cnt}, provide_buf_cnt: {provide_buf_cnt} len: {}",
-                        ring.submission().len());
+                    // println!("reprovide buffer error: {result:?} recv_msg_cnt: {recv_msg_cnt}, provide_buf_cnt: {provide_buf_cnt} len: {}",
+                    //     ring.submission().len());
                     // requeue it: but break as we are already full of sqes:
                     buffers_to_requeue.push_back(bid);
                     break;
