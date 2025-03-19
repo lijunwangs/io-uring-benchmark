@@ -1,5 +1,6 @@
 use io_uring::{cqueue, opcode, squeue, types, IoUring, Probe};
 use solana_net_utils::SocketConfig;
+use solana_streamer::{packet::Packet, streamer::recv_mmsg};
 use std::collections::VecDeque;
 use std::mem::MaybeUninit;
 use std::net::SocketAddr;
@@ -25,6 +26,10 @@ struct Opt {
     /// use provided buffer
     #[structopt(long)]
     use_buffer: bool,
+
+    /// use regular recvmsgs
+    #[structopt(long)]
+    regular: bool,
 
     /// Number of endpoints on server side
     #[structopt(long, default_value = "8")]
@@ -390,6 +395,19 @@ fn bind_multi(count: usize, addr: SocketAddr) -> Vec<UdpSocket> {
     sockets
 }
 
+// benchmark regular recvmsgs without using io-uring
+fn bench_mark_recvmsgs_regular(
+    socket: UdpSocket,
+    packet_count: Arc<AtomicUsize>,
+) -> std::io::Result<()> {
+    const TEST_NUM_MSGS: usize = 64;
+
+    let mut packets = vec![Packet::default(); TEST_NUM_MSGS];
+    let recv = recv_mmsg(&socket, &mut packets[..]).unwrap();
+    packet_count.fetch_add(recv, Ordering::Relaxed);
+    Ok(())
+}
+
 fn main() -> std::io::Result<()> {
     let opt = Opt::from_args();
     // Create and bind UDP socket
@@ -444,18 +462,21 @@ fn run_server(
     socket: UdpSocket,
     packet_count: Arc<AtomicUsize>,
 ) -> Result<(), std::io::Error> {
-    // Enable IORING_SETUP_SQPOLL with idle timeout
-    let ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
-        .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
-        .build(2048)?;
-
-    if opt.multi_recv {
-        bench_mark_multi_recv(socket, ring, packet_count)
-    } else if opt.recvmsg {
-        bench_mark_recvmsg(socket, ring, packet_count)
-    } else if opt.use_buffer {
-        bench_mark_recvmsg_with_provided_buf(socket, ring, packet_count)
+    if opt.regular {
+        bench_mark_recvmsgs_regular(socket, packet_count)
     } else {
-        bench_mark_recv(socket, ring, packet_count)
+        // Enable IORING_SETUP_SQPOLL with idle timeout
+        let ring = IoUring::<squeue::Entry, cqueue::Entry>::builder()
+            .setup_sqpoll(SQPOLL_IDLE_MS) // Kernel polls for 5 seconds before sleeping
+            .build(2048)?;
+        if opt.multi_recv {
+            bench_mark_multi_recv(socket, ring, packet_count)
+        } else if opt.recvmsg {
+            bench_mark_recvmsg(socket, ring, packet_count)
+        } else if opt.use_buffer {
+            bench_mark_recvmsg_with_provided_buf(socket, ring, packet_count)
+        } else {
+            bench_mark_recv(socket, ring, packet_count)
+        }
     }
 }
