@@ -10,7 +10,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-use std::{cmp, thread, time::Duration};
+use std::{cmp, io, thread, time::Duration};
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug, Clone)]
