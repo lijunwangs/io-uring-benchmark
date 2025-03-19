@@ -1,3 +1,5 @@
+/// This tool enable running a UDP server in multiple mode to receive packets
+/// Using different flavors of io-uring library and regular recvmsgs.
 use io_uring::{cqueue, opcode, squeue, types, IoUring, Probe};
 use solana_net_utils::SocketConfig;
 use solana_streamer::packet::{Meta, Packet};
