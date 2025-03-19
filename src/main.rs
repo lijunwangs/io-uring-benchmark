@@ -183,7 +183,7 @@ fn bench_mark_multi_recv(
             assert!([25, 15].contains(&msg.payload_data().len()));
             assert!(!msg.is_payload_truncated());
             assert!(!msg.is_control_data_truncated());
-            assert_eq!(msg.control_data(), &[]);
+            assert_eq!(msg.control_data(), &[] as &[u8]);
             assert!(!msg.is_name_data_truncated());
             let addr = unsafe {
                 let storage = msg
