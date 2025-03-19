@@ -1,6 +1,6 @@
 use io_uring::{cqueue, opcode, squeue, types, IoUring, Probe};
 use solana_net_utils::SocketConfig;
-use solana_streamer::{packet::Packet, streamer::recv_mmsg};
+use solana_streamer::packet::Packet;
 use std::collections::VecDeque;
 use std::mem::MaybeUninit;
 use std::net::SocketAddr;
@@ -406,6 +406,33 @@ fn bench_mark_recvmsgs_regular(
     let recv = recv_mmsg(&socket, &mut packets[..]).unwrap();
     packet_count.fetch_add(recv, Ordering::Relaxed);
     Ok(())
+}
+
+pub const NUM_RCVMMSGS: usize = 64;
+pub fn recv_mmsg(socket: &UdpSocket, packets: &mut [Packet]) -> io::Result</*num packets:*/ usize> {
+    debug_assert!(packets.iter().all(|pkt| pkt.meta() == &Meta::default()));
+    let mut i = 0;
+    let count = cmp::min(NUM_RCVMMSGS, packets.len());
+    for p in packets.iter_mut().take(count) {
+        p.meta_mut().size = 0;
+        match socket.recv_from(p.buffer_mut()) {
+            Err(_) if i > 0 => {
+                break;
+            }
+            Err(e) => {
+                return Err(e);
+            }
+            Ok((nrecv, from)) => {
+                p.meta_mut().size = nrecv;
+                p.meta_mut().set_socket_addr(&from);
+                if i == 0 {
+                    socket.set_nonblocking(true)?;
+                }
+            }
+        }
+        i += 1;
+    }
+    Ok(i)
 }
 
 fn main() -> std::io::Result<()> {
