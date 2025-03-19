@@ -402,10 +402,12 @@ fn bench_mark_recvmsgs_regular(
 ) -> std::io::Result<()> {
     const TEST_NUM_MSGS: usize = 64;
 
-    let mut packets = vec![Packet::default(); TEST_NUM_MSGS];
-    let recv = recv_mmsg(&socket, &mut packets[..]).unwrap();
-    packet_count.fetch_add(recv, Ordering::Relaxed);
-    Ok(())
+    loop {
+        let mut packets = vec![Packet::default(); TEST_NUM_MSGS];
+        if let Ok(recv) = recv_mmsg(&socket, &mut packets[..]) {
+            packet_count.fetch_add(recv, Ordering::Relaxed);
+        }
+    }
 }
 
 pub const NUM_RCVMMSGS: usize = 64;
