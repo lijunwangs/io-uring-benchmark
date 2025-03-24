@@ -231,7 +231,8 @@ fn bench_mark_recvmsg(
 
     println!("size: {}", bufs2.get(0).unwrap().len());
 
-    // build recvmsg
+    // build recvmsg, even when I give the IoVector of 4, I only get one buffer
+    // length back.
     let mut msg = MaybeUninit::<libc::msghdr>::zeroed();
 
     unsafe {
@@ -258,7 +259,7 @@ fn bench_mark_recvmsg(
         let cqes: Vec<cqueue::Entry> = ring.completion().map(Into::into).collect();
         for entry in cqes {            
             let len = entry.result();
-            println!("received {len} bytes");
+            // println!("received {len} bytes");
             let count = (len / 1400) as usize;
             packet_count.fetch_add(count, Ordering::Relaxed);
         }
