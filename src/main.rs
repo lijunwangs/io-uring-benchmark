@@ -214,7 +214,7 @@ fn bench_mark_recvmsg(
 
     // let probe = Probe::new();
     // assert!(probe.is_supported(opcode::RecvMsg::CODE));
-    const SIZE: usize = 1400;
+    const SIZE: usize = 1470;
   
     let mut buf2 = vec![0; SIZE];
     let mut bufs2 = vec![std::io::IoSliceMut::new(&mut buf2)];
