@@ -220,7 +220,7 @@ fn bench_mark_recvmsg(
     let mut bufs2 = vec![std::io::IoSliceMut::new(&mut buf2)];
 
     let mut buf3 = vec![0; SIZE];
-    bufs2.push(buf3);
+    bufs2.push(std::io::IoSliceMut::new(&mut buf3));
 
     // build recvmsg
     let mut msg = MaybeUninit::<libc::msghdr>::zeroed();
