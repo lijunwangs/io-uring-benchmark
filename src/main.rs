@@ -222,6 +222,8 @@ fn bench_mark_recvmsg(
     let mut buf3 = vec![0; SIZE];
     bufs2.push(std::io::IoSliceMut::new(&mut buf3));
 
+    println!("size: {}", bufs2.get(0).unwrap().len());
+
     // build recvmsg
     let mut msg = MaybeUninit::<libc::msghdr>::zeroed();
 
