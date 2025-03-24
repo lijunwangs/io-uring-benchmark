@@ -217,7 +217,10 @@ fn bench_mark_recvmsg(
     const SIZE: usize = 1400;
 
     let mut buf2 = vec![0; SIZE];
-    let mut bufs2 = [std::io::IoSliceMut::new(&mut buf2)];
+    let mut bufs2 = vec![std::io::IoSliceMut::new(&mut buf2)];
+
+    let mut buf3 = vec![0; SIZE];
+    bufs2.push(buf3);
 
     // build recvmsg
     let mut msg = MaybeUninit::<libc::msghdr>::zeroed();
@@ -227,7 +230,7 @@ fn bench_mark_recvmsg(
         (*p).msg_name = sockaddr.as_ptr() as *const _ as *mut _;
         (*p).msg_namelen = sockaddr.len();
         (*p).msg_iov = bufs2.as_mut_ptr() as *mut _;
-        (*p).msg_iovlen = 1;
+        (*p).msg_iovlen = bufs2.len();
     }
 
     loop {
