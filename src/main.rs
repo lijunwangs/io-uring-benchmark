@@ -247,8 +247,9 @@ fn bench_mark_recvmsg(
         ring.submit_and_wait(1)?;
 
         let cqes: Vec<cqueue::Entry> = ring.completion().map(Into::into).collect();
-        for entry in cqes {
+        for entry in cqes {            
             let len = entry.result();
+            println!("received {len} bytes");
             let count = (len / 1400) as usize;
             packet_count.fetch_add(count, Ordering::Relaxed);
         }
