@@ -216,11 +216,12 @@ fn bench_mark_recvmsg(
     // assert!(probe.is_supported(opcode::RecvMsg::CODE));
     const SIZE: usize = 1400;
 
-    let mut buf2 = vec![0; SIZE];
-    let mut bufs2 = vec![std::io::IoSliceMut::new(&mut buf2)];
-
-    let mut buf3 = vec![0; SIZE];
-    bufs2.push(std::io::IoSliceMut::new(&mut buf3));
+    let mut bufs2 = Vec::new();
+    for _ in 0..4 {
+        let mut buf3 = vec![0; SIZE];
+        bufs2.push(std::io::IoSliceMut::new(&mut buf3));
+    
+    }
 
     println!("size: {}", bufs2.get(0).unwrap().len());
 
